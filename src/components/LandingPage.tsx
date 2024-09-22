@@ -6,7 +6,8 @@ const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
 const Landing: any = () => {
   const [prompt, setPrompt] = useState('');
   const [generatedText, setGeneratedText] = useState('');
-  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false); 
+  const [error, setError] = useState(''); 
 
   const handleGenerateBlog = async () => {
     if (!OPENAI_API_KEY) {
@@ -14,8 +15,11 @@ const Landing: any = () => {
       return;
     }
 
+    setLoading(true); 
+    setGeneratedText(''); 
+    setError(''); 
+
     try {
-      setError(''); 
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -23,23 +27,26 @@ const Landing: any = () => {
           "Authorization": `Bearer ${OPENAI_API_KEY}`, 
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini", 
+          model: "gpt-4o-mini",
           messages: [
             { role: "system", content: "You are a helpful assistant." },
             { role: "user", content: prompt },
           ],
-          max_tokens: 800,
+          max_tokens: 800, 
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to fetch from OpenAI");
+        const errorResponse = await response.json();
+        throw new Error(errorResponse.error?.message || "Failed to fetch from OpenAI");
       }
 
       const result = await response.json();
       setGeneratedText(result.choices[0].message.content || "Error generating text.");
     } catch (error: any) {
-      setError(error.message || "An unknown error occurred.");
+      setError(error.message || "An error occurred while generating the blog.");
+    } finally {
+      setLoading(false); 
     }
   };
 
@@ -82,20 +89,29 @@ const Landing: any = () => {
         <Button
           onClick={handleGenerateBlog}
           className="bg-black text-white px-6 py-3 rounded-full font-semibold hover:bg-gray-900"
+          disabled={loading} 
         >
-          Generate Blog
+          {loading ? (
+            <div className="flex items-center space-x-2">
+              <div className="spinner-border animate-spin inline-block w-4 h-4 border-2 rounded-full border-t-transparent border-white"></div>
+              <span>Generating...</span>
+            </div>
+          ) : (
+            "Generate Blog"
+          )}
         </Button>
-
-        {error && (
-          <div className="mt-4 w-full max-w-lg p-4 bg-red-100 text-red-700 rounded-lg">
-            <p>{error}</p>
-          </div>
-        )}
 
         {generatedText && (
           <div className="mt-6 w-full max-w-2xl p-4 bg-gray-100 rounded-lg">
             <h3 className="text-xl font-semibold mb-2">Generated Blog:</h3>
             <p>{generatedText}</p>
+          </div>
+        )}
+
+        {error && (
+          <div className="mt-6 w-full max-w-2xl p-4 bg-red-100 text-red-700 rounded-lg">
+            <h3 className="text-xl font-semibold mb-2">Error:</h3>
+            <p>{error}</p>
           </div>
         )}
       </section>
